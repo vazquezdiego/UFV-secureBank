@@ -1,34 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <semaphore.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <string.h>
 
-struct Cuenta {
-    int numero_cuenta;
-    char titular[50];
+typedef struct {
+    int id;
     float saldo;
-    int num_transacciones;
-};
+} Cuenta;
 
 int main() {
-    // Crear o abrir el semáforo
-    sem_t *semaforo = sem_open("/cuentas_sem", O_CREAT, 0644, 1);
-    if (semaforo == SEM_FAILED) {
-        perror("Error al crear el semáforo");
-        exit(EXIT_FAILURE);
+    FILE *archivo = fopen("cuentas.dat", "wb");
+    if (!archivo) {
+        perror("Error al crear cuentas.dat");
+        return 1;
     }
-
-    printf("Semáforo creado correctamente.\n");
-
-    // Aquí iría el código para manejar la estructura Cuenta y el semáforo
-
-    // Cerrar el semáforo al final
-    sem_close(semaforo);
-    sem_unlink("/cuentas_sem");  // Opcional: eliminar el semáforo si no se necesita más
-
+    
+    Cuenta cuentas[3] = {{1, 1000.0}, {2, 2000.0}, {3, 3000.0}};
+    fwrite(cuentas, sizeof(Cuenta), 3, archivo);
+    fclose(archivo);
+    
+    printf("Cuentas inicializadas correctamente.\n");
     return 0;
 }
+

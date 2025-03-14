@@ -1,93 +1,61 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include "Usuarios.h"
+#include "Config.h"
 
-typedef struct {
-    int tipo_operacion;
-    // Puedes agregar más campos si es necesario, por ejemplo, cantidad, cuenta destino, etc.
-} DatosOperacion;
+extern sem_t *semaforo;
 
-void ejecutar_menu_usuario(int pipe_hijo_padre) {
-    int operacion;
-    read(pipe_hijo_padre, &operacion, sizeof(operacion));  // Leer del pipe
-    printf("Operación recibida: %d\n", operacion);
+void realizar_deposito(int cuenta, float monto) {
+    if (monto <= 0) {
+        printf("Error: Monto de depósito inválido.\n");
+        return;
+    }
+    sem_wait(semaforo);
+    printf("Depósito realizado en cuenta %d por %.2f\n", cuenta, monto);
+    sem_post(semaforo);
+}
 
-    int opcion;
+void realizar_retiro(int cuenta, float monto) {
+    if (monto > configuracion.limite_retiro) {
+        printf("Error: Retiro excede el límite permitido (%d)\n", configuracion.limite_retiro);
+        return;
+    }
+    sem_wait(semaforo);
+    printf("Retiro realizado en cuenta %d por %.2f\n", cuenta, monto);
+    sem_post(semaforo);
+}
+
+void realizar_transferencia(int origen, int destino, float monto) {
+    if (monto > configuracion.limite_transferencia) {
+        printf("Error: Transferencia excede el límite permitido (%d)\n", configuracion.limite_transferencia);
+        return;
+    }
+    sem_wait(semaforo);
+    printf("Transferencia de cuenta %d a cuenta %d por %.2f\n", origen, destino, monto);
+    sem_post(semaforo);
+}
+
+void consultar_saldo(int cuenta) {
+    sem_wait(semaforo);
+    printf("Saldo de cuenta %d: $%.2f\n", cuenta, 1000.00);
+    sem_post(semaforo);
+}
+
+void ejecutar_menu_usuario() {
+    int opcion, cuenta, destino;
+    float monto;
     while (1) {
-        printf("1. Deposito\n2. Retiro\n3. Transferencia\n4. Consulta de saldo\n5. Salir\n");
+        printf("1. Depósito\n2. Retiro\n3. Transferencia\n4. Consultar saldo\n5. Salir\n");
         scanf("%d", &opcion);
         switch (opcion) {
-            case 1:
-                printf("Realizando depósito...\n");
-                {
-                    // Crear hilo para realizar depósito
-                    DatosOperacion datos_operacion = {1}; // Asumimos que 1 es depósito
-                    pthread_t hilo;
-                    pthread_create(&hilo, NULL, ejecutar_operacion, (void *)&datos_operacion);
-                    pthread_join(hilo, NULL);
-                }
-                break;
-            case 2:
-                printf("Realizando retiro...\n");
-                {
-                    // Crear hilo para realizar retiro
-                    DatosOperacion datos_operacion = {2}; // Asumimos que 2 es retiro
-                    pthread_t hilo;
-                    pthread_create(&hilo, NULL, ejecutar_operacion, (void *)&datos_operacion);
-                    pthread_join(hilo, NULL);
-                }
-                break;
-            case 3:
-                printf("Realizando transferencia...\n");
-                {
-                    // Crear hilo para realizar transferencia
-                    DatosOperacion datos_operacion = {3}; // Asumimos que 3 es transferencia
-                    pthread_t hilo;
-                    pthread_create(&hilo, NULL, ejecutar_operacion, (void *)&datos_operacion);
-                    pthread_join(hilo, NULL);
-                }
-                break;
-            case 4:
-                printf("Consultando saldo...\n");
-                {
-                    // Crear hilo para consultar saldo
-                    DatosOperacion datos_operacion = {4}; // Asumimos que 4 es consulta de saldo
-                    pthread_t hilo;
-                    pthread_create(&hilo, NULL, ejecutar_operacion, (void *)&datos_operacion);
-                    pthread_join(hilo, NULL);
-                }
-                break;
-            case 5:
-                exit(0);
-            default:
-                printf("Opción no válida\n");
+            case 1: printf("Ingrese cuenta y monto: "); scanf("%d %f", &cuenta, &monto); realizar_deposito(cuenta, monto); break;
+            case 2: printf("Ingrese cuenta y monto: "); scanf("%d %f", &cuenta, &monto); realizar_retiro(cuenta, monto); break;
+            case 3: printf("Ingrese cuenta de origen, destino y monto: "); scanf("%d %d %f", &cuenta, &destino, &monto); realizar_transferencia(cuenta, destino, monto); break;
+            case 4: printf("Ingrese cuenta: "); scanf("%d", &cuenta); consultar_saldo(cuenta); break;
+            case 5: exit(0);
         }
     }
 }
 
-void *ejecutar_operacion(void *datos) {
-    DatosOperacion *operacion = (DatosOperacion *)datos;
-    
-    // Realiza la operación correspondiente
-    switch (operacion->tipo_operacion) {
-        case 1:
-            printf("Ejecutando depósito...\n");
-            break;
-        case 2:
-            printf("Ejecutando retiro...\n");
-            break;
-        case 3:
-            printf("Ejecutando transferencia...\n");
-            break;
-        case 4:
-            printf("Consultando saldo...\n");
-            break;
-        default:
-            printf("Operación desconocida...\n");
-            break;
-    }
-
-    return NULL;
-}
