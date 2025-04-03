@@ -1,23 +1,45 @@
+// +------------------------------------------------------------------------------------------------------------------------------+*
+// Llamamos a este archivo desde el programa principal y se ejecuta al principio para añadir usuarios al sistema.
+// +------------------------------------------------------------------------------------------------------------------------------+*
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct {
-    int id;
+struct Cuenta {
+    int numero_cuenta;
+    char titular[50];
     float saldo;
-} Cuenta;
+    int num_transacciones;
+};
 
-int main() {
-    FILE *archivo = fopen("cuentas.dat", "wb");
+void InitCuentas(const char *nombreArchivo) {
+    FILE *archivo = fopen(nombreArchivo, "a");
     if (!archivo) {
-        perror("Error al crear cuentas.dat");
-        return 1;
+        perror("Error al crear el archivo");
+        return;
+    }
+
+    fseek(archivo, 0, SEEK_END);
+    long tamano = ftell(archivo);
+
+    if(tamano != 0) {
+        printf("El archivo ya contiene cuentas. \n");
+        fclose(archivo);
+    }
+    else{
+        struct Cuenta cuentas[3] = {
+            {1001, "John Doe", 5000.00, 0},
+            {1002, "Jane Smith", 3000.00, 0},
+            {1003, "Alice Johnson", 7000.00, 0}
+        };
+        
+        for (int i = 0; i < 3; i++) {
+            fprintf(archivo, "%d,%s,%.2f,%d\n", cuentas[i].numero_cuenta, cuentas[i].titular, cuentas[i].saldo, cuentas[i].num_transacciones);
+        }
+        
+        fclose(archivo);
+        printf("Cuentas inicializadas correctamente en %s.\n", nombreArchivo);
     }
     
-    Cuenta cuentas[3] = {{1, 1000.0}, {2, 2000.0}, {3, 3000.0}};
-    fwrite(cuentas, sizeof(Cuenta), 3, archivo);
-    fclose(archivo);
-    
-    printf("Cuentas inicializadas correctamente.\n");
-    return 0;
+
 }
 

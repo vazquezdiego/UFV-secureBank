@@ -3,6 +3,8 @@
 #include <string.h>
 #include <sys/msg.h>
 #include <unistd.h>
+#include "Config.h"
+#include "Monitor.h"
 
 #define MAX_TEXT 100
 
@@ -15,7 +17,10 @@ void enviar_alerta(const char *mensaje) {
     printf("ALERTA: %s\n", mensaje);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    int limeteRetiros = atoi(argv[1]);
+    int limeteTransferencias = atoi(argv[2]);
+    
     int cola_mensajes = msgget(1234, 0666 | IPC_CREAT);
     if (cola_mensajes == -1) {
         perror("Error al acceder a la cola de mensajes");
