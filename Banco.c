@@ -31,7 +31,6 @@
 #include "init_cuentas.c"
 #include "crearUsuario.h"
 #include "Config.h"
-#include "Monitor.c"
 #include "Monitor.h"
 
 Config configuracion;
@@ -154,17 +153,22 @@ void *VerPipes(void *arg)
     }
 }
 
-void *MostrarMonitor(void *arg){
+void *MostrarMonitor(void *arg)
+{
 
-    const char *rutaMonitor = "/home/larena/Documents/PracticaFinalM/monitor";
-
-    char comandoMonitor[512];
-    snprintf(comandoMonitor, sizeof(comandoMonitor), "%s %d %d", rutaMonitor, configuracion.limite_retiro, configuracion.limite_transferencia);
-    
-    // Ejecutar gnome-terminal con el comando
-    execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoMonitor, NULL);
+    pid_t pidMonitor;
+    pidMonitor = fork();
+    if(pidMonitor == 0)
+    {
+        const char *rutaMonitor = "/home/vboxuser/Documents/UFV-secureBank/monitor";
+        char comandoMonitor[512];
+        snprintf(comandoMonitor, sizeof(comandoMonitor), "%s %d %d", rutaMonitor, configuracion.limite_retiro, configuracion.limite_transferencia);
+        // Ejecutar gnome-terminal con el comando
+        execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoMonitor, NULL);
+    }
 
 }
+
 
 void *MostrarMenu(void *arg)
 {
@@ -209,7 +213,7 @@ void *MostrarMenu(void *arg)
             { // Proceso hijo
 
                 // Ruta absoluta del ejecutable usuario
-                const char *rutaUsuario = "/home/larena/Documents/PracticaFinalM/usuario";
+                const char *rutaUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
 
                 // Construcción del comando con pausa al final
                 char comandoUsuario[512];
@@ -236,7 +240,7 @@ void *MostrarMenu(void *arg)
             { // proceso hijo
 
                 // Ruta absoluta del ejecutable menu usuario
-                const char *rutaCrearUsuario = "/home/larena/Documents/PracticaFinalM/usuario";
+                const char *rutaCrearUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
 
                 // Construcción del comando con pausa al final
                 char comandoCrearUsuario[512];
@@ -267,8 +271,13 @@ int main()
     pthread_create(&hilo_pipes, NULL,   VerPipes, NULL);
     pthread_create(&hilo_monitor, NULL, MostrarMonitor, NULL);
 
+    
+
+
+
     pthread_join(hilo_menu, NULL);
     pthread_join(hilo_pipes, NULL);
     pthread_join(hilo_monitor, NULL);
+
     return 0;
 }
