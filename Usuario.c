@@ -311,7 +311,7 @@ void *ConsultarSaldo(void *arg)
 }
 
 // Realizar transacción a otra cuenta
-void *Transaccion(void *arg)
+void *Transferencia(void *arg)
 {
     // Bloqueamos el mutex para evitar condiciones de carrera
     pthread_mutex_lock(&mutex_u);
@@ -385,7 +385,7 @@ void *Transaccion(void *arg)
 
         // escribimos el mensaje
         ObtenerFechaHora(FechaHora, sizeof(FechaHora));
-        snprintf(mensaje, sizeof(mensaje), "[%s] transaccion desde cuenta %d a cuenta %d: -%.2f", FechaHora, usuario->numero_cuenta, cuentaDestino, cantidad);
+        snprintf(mensaje, sizeof(mensaje), "[%s] Transferencia desde cuenta %d a cuenta %d: -%.2f", FechaHora, usuario->numero_cuenta, cuentaDestino, cantidad);
         // Escribir mensaje en tuberia
         write(fd, mensaje, strlen(mensaje) + 1);
 
@@ -473,7 +473,7 @@ int main(int argc, char *argv[])
             pthread_join(hilo, NULL);
             break;
         case 4:
-            pthread_create(&hilo, NULL, Transaccion, &args);
+            pthread_create(&hilo, NULL, Transferencia, &args);
             pthread_join(hilo, NULL);
             break;
         case 5:
