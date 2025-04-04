@@ -45,15 +45,28 @@ void EscribirEnTranscciones(const char *mensaje)
         return;
     }
 
-    // Obtener la hora actual
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
 
     // Escribir en el log con timestamp
     fprintf(archivoLog, "%s\n", mensaje);
 
     fclose(archivoLog);
 }
+
+
+// Como llamamos a la funcion de obtener la fecha y la hora
+// ObtenerFechaHora(FechaHora, sizeof(FechaHora));
+void ObtenerFechaHora(char *buffer, size_t bufferSize)
+{
+    time_t t;
+    struct tm *tm_info;
+
+    time(&t);
+    tm_info = localtime(&t);
+
+    strftime(buffer, bufferSize, "%Y-%m-%d %H:%M:%S", tm_info);
+}
+
+
 
 // Leer configuración desde archivo
 Config leer_configuracion(const char *ruta)
