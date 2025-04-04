@@ -38,8 +38,9 @@ Config configuracion;
 // funcion para escribir en el log
 void EscribirEnLog(const char *mensaje)
 {
-    FILE *archivoLog = fopen(configuracion.archivo_log, "a");  // "a" → Añadir al final
-    if (!archivoLog) {
+    FILE *archivoLog = fopen(configuracion.archivo_log, "a"); // "a" → Añadir al final
+    if (!archivoLog)
+    {
         perror("Error al abrir el archivo de log");
         return;
     }
@@ -121,7 +122,10 @@ bool verificarUsuario(const char *archivoLectura, int IdCuenta)
 void *VerPipes(void *arg)
 {
 
-    int fdBancoUsuario;
+    int fdBancoUsuario, fdBancoMonitor;
+    char operacion[50];
+    char BancoMonitor[256];
+    int cuenta;
 
     while (1) // Bucle externo para volver a abrir el FIFO si se cierra
     {
@@ -141,7 +145,20 @@ void *VerPipes(void *arg)
             if (bytes_leidos > 0)
             {
                 mensaje[bytes_leidos] = '\0'; // Asegurar terminación de cadena
-                EscribirEnLog(mensaje); // Escribir en el log
+                EscribirEnLog(mensaje);       // Escribir en el log
+
+                // Extraer "Retiro" y el número de cuenta (1001)
+                sscanf(mensaje, "[%*[^]]] %s en cuenta %d:", operacion, &cuenta);
+
+                if (strcmp(operacion, "Retiro") == 0 || strcmp(operacion, "Transferencia") == 0)
+                {
+                    // Imprimir los valores extraídos
+                    snprintf(BancoMonitor, sizeof(BancoMonitor), "Operacion: %s, Cuenta: %d", operacion, cuenta);
+
+                    fdBancoMonitor = open("fifo_BancoMonitor", O_WRONLY);
+                    write(fdBancoMonitor, BancoMonitor, strlen(BancoMonitor) + 1);
+                    close(fdBancoMonitor);
+                }
             }
             else if (bytes_leidos == 0)
             {
@@ -158,17 +175,15 @@ void *MostrarMonitor(void *arg)
 
     pid_t pidMonitor;
     pidMonitor = fork();
-    if(pidMonitor == 0)
+    if (pidMonitor == 0)
     {
-        const char *rutaMonitor = "/home/vboxuser/Documents/UFV-secureBank/monitor";
+        const char *rutaMonitor = "/home/vboxuser/Documents/Larena/monitor";
         char comandoMonitor[512];
         snprintf(comandoMonitor, sizeof(comandoMonitor), "%s %d %d", rutaMonitor, configuracion.limite_retiro, configuracion.limite_transferencia);
         // Ejecutar gnome-terminal con el comando
         execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoMonitor, NULL);
     }
-
 }
-
 
 void *MostrarMenu(void *arg)
 {
@@ -182,8 +197,6 @@ void *MostrarMenu(void *arg)
 
     // Inicializamos las cuentas
     InitCuentas(configuracion.archivo_cuentas);
-
-
 
     // Bucle de espera de conexiones
     while (numeroCuenta != 1)
@@ -213,7 +226,7 @@ void *MostrarMenu(void *arg)
             { // Proceso hijo
 
                 // Ruta absoluta del ejecutable usuario
-                const char *rutaUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
+                const char *rutaUsuario = "/home/vboxuser/Documents/Larena/usuario";
 
                 // Construcción del comando con pausa al final
                 char comandoUsuario[512];
@@ -240,7 +253,7 @@ void *MostrarMenu(void *arg)
             { // proceso hijo
 
                 // Ruta absoluta del ejecutable menu usuario
-                const char *rutaCrearUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
+                const char *rutaCrearUsuario = "/home/vboxuser/Documents/Larena/usuario";
 
                 // Construcción del comando con pausa al final
                 char comandoCrearUsuario[512];
@@ -267,13 +280,15 @@ int main()
         exit(EXIT_FAILURE);
     }
 
+    if (mkfifo("fifo_BancoMonitor", 0666) == -1 && errno != EEXIST)
+    {
+        perror("Error al crear la tubería");
+        exit(EXIT_FAILURE);
+    }
+
     pthread_create(&hilo_menu, NULL, MostrarMenu, NULL);
-    pthread_create(&hilo_pipes, NULL,   VerPipes, NULL);
+    pthread_create(&hilo_pipes, NULL, VerPipes, NULL);
     pthread_create(&hilo_monitor, NULL, MostrarMonitor, NULL);
-
-    
-
-
 
     pthread_join(hilo_menu, NULL);
     pthread_join(hilo_pipes, NULL);

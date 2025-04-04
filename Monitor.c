@@ -1,10 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/msg.h>
+#include <semaphore.h>
+#include <pthread.h>
 #include <unistd.h>
-#include "Config.h"
-#include "Monitor.h"
+#include <fcntl.h>
+#include <stdbool.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <errno.h>
+
+#include <sys/types.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #define MAX_TEXT 100
 
@@ -17,25 +25,36 @@ void enviar_alerta(const char *mensaje) {
     printf("ALERTA: %s\n", mensaje);
 }
 
+void *EscucharTuberia(void *arg) {
+    char mensaje[100];
+    int fdBancoMonitor;
+    while (1) {
+        fdBancoMonitor = open("fifo_BancoMonitor", O_RDONLY);
+        if (fdBancoMonitor == -1) {
+            perror("Error al abrir la FIFO");
+            exit(1);
+        }
+
+        ssize_t bytes_leidos = read(fdBancoMonitor, mensaje, sizeof(mensaje));
+        if (bytes_leidos > 0) {
+            mensaje[bytes_leidos] = '\0'; // Asegurarse de que el mensaje esté terminado en null
+            printf("Mensaje recibido: %s\n", mensaje);
+            close(fdBancoMonitor);
+        } else if (bytes_leidos == 0) {
+            close(fdBancoMonitor);
+            break; // FIFO cerrada, salir del bucle
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     int limeteRetiros = atoi(argv[1]);
     int limeteTransferencias = atoi(argv[2]);
-    
-    int cola_mensajes = msgget(1234, 0666 | IPC_CREAT);
-    if (cola_mensajes == -1) {
-        perror("Error al acceder a la cola de mensajes");
-        exit(1);
-    }
 
-    struct msgbuf mensaje;
-    while (1) {
-        if (msgrcv(cola_mensajes, &mensaje, sizeof(mensaje.texto), 0, 0) > 0) {
-            printf("Monitoreo: %s\n", mensaje.texto);
-            if (strstr(mensaje.texto, "retiros consecutivos") || strstr(mensaje.texto, "transferencias repetitivas")) {
-                enviar_alerta(mensaje.texto);
-            }
-        }
-    }
+    pthread_t hilo_escuchar;
+    pthread_create(&hilo_escuchar, NULL, EscucharTuberia, NULL);
+    pthread_join(hilo_escuchar, NULL);
+    
 
     return 0;
 }
