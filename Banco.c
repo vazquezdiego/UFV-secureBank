@@ -53,6 +53,21 @@ void EscribirEnTranscciones(const char *mensaje)
 }
 
 
+void EscribirEnLog(const char *mensaje)
+{
+    FILE *archivoLog = fopen(configuracion.archivo_log, "a"); // "a" → Añadir al final
+    if (!archivoLog)
+    {
+        perror("Error al abrir el archivo de log");
+        return;
+    }
+
+    fprintf(archivoLog, "%s", mensaje);
+
+    fclose(archivoLog);
+}
+
+
 // Como llamamos a la funcion de obtener la fecha y la hora
 // ObtenerFechaHora(FechaHora, sizeof(FechaHora));
 void ObtenerFechaHora(char *buffer, size_t bufferSize)
