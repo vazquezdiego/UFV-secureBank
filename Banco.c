@@ -36,9 +36,9 @@
 Config configuracion;
 
 // funcion para escribir en el log
-void EscribirEnLog(const char *mensaje)
+void EscribirEnTranscciones(const char *mensaje)
 {
-    FILE *archivoLog = fopen(configuracion.archivo_log, "a"); // "a" → Añadir al final
+    FILE *archivoLog = fopen(configuracion.archivo_transacciones, "a"); // "a" → Añadir al final
     if (!archivoLog)
     {
         perror("Error al abrir el archivo de log");
@@ -87,6 +87,8 @@ Config leer_configuracion(const char *ruta)
             sscanf(linea, "ARCHIVO_CUENTAS=%s", config.archivo_cuentas);
         else if (strstr(linea, "ARCHIVO_LOG"))
             sscanf(linea, "ARCHIVO_LOG=%s", config.archivo_log);
+            else if (strstr(linea, "ARCHIVO_TRANSACCIONES"))
+            sscanf(linea, "ARCHIVO_TRANSACCIONES=%s", config.archivo_transacciones);
     }
     fclose(archivo);
     return config;
@@ -143,10 +145,8 @@ void *VerPipes(void *arg)
             if (bytes_leidos > 0)
             {
                 mensaje[bytes_leidos] = '\0'; // Asegurar terminación de cadena
-                EscribirEnLog(mensaje);       // Escribir en el log
+                EscribirEnTranscciones(mensaje);       // Escribir en el log
 
-                // Extraer "Retiro" y el número de cuenta (1001)
-                sscanf(mensaje, "[%*[^]]] %s en cuenta %d:", operacion, &cuenta);
             }
             else if (bytes_leidos == 0)
             {
@@ -165,7 +165,7 @@ void *MostrarMonitor(void *arg)
     pidMonitor = fork();
     if (pidMonitor == 0)
     {
-        const char *rutaMonitor = "/home/vboxuser/Documents/Larena/monitor";
+        const char *rutaMonitor = "/home/vboxuser/Documents/UFV-secureBank/monitor";
         char comandoMonitor[512];
         snprintf(comandoMonitor, sizeof(comandoMonitor), "%s %d %d", rutaMonitor, configuracion.limite_retiro, configuracion.limite_transferencia);
         // Ejecutar gnome-terminal con el comando
@@ -214,7 +214,7 @@ void *MostrarMenu(void *arg)
             { // Proceso hijo
 
                 // Ruta absoluta del ejecutable usuario
-                const char *rutaUsuario = "/home/vboxuser/Documents/Larena/usuario";
+                const char *rutaUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
 
                 // Construcción del comando con pausa al final
                 char comandoUsuario[512];
@@ -241,7 +241,7 @@ void *MostrarMenu(void *arg)
             { // proceso hijo
 
                 // Ruta absoluta del ejecutable menu usuario
-                const char *rutaCrearUsuario = "/home/vboxuser/Documents/Larena/usuario";
+                const char *rutaCrearUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
 
                 // Construcción del comando con pausa al final
                 char comandoCrearUsuario[512];
@@ -263,12 +263,6 @@ int main()
     configuracion = leer_configuracion("config.txt");
     // Tuberias
     if (mkfifo("fifo_bancoUsuario", 0666) == -1 && errno != EEXIST)
-    {
-        perror("Error al crear la tubería");
-        exit(EXIT_FAILURE);
-    }
-
-    if (mkfifo("fifo_BancoMonitor", 0666) == -1 && errno != EEXIST)
     {
         perror("Error al crear la tubería");
         exit(EXIT_FAILURE);
