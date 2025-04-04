@@ -14,14 +14,22 @@
 #include <time.h>
 #include <fcntl.h>
 
+// Definimos los semáforos para controlar el archivo de cuentas.txt cuando escribimos y leemos
+sem_t sem1; // Para leer
+sem_t sem2; // Para escribir
+
+// Definimos un mutex para controlar las operaciones que realizan los usuarios
+pthread_mutex_t mutex_u = PTHREAD_MUTEX_INITIALIZER;
+
 typedef struct Cuenta
 {
     int numero_cuenta;
     char titular[50];
     float saldo;
     int num_transacciones;
- 
-
+    
+    // Definimos un mutex para controlar el acceso a la cuenta
+    pthread_mutex_t mutex_c;
 } Cuenta;
 
 typedef struct
@@ -46,6 +54,8 @@ void ObtenerFechaHora(char *buffer, size_t bufferSize)
 // Para extraer los campos del archivo
 Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
 {
+    // Pide permiso para leer el archivo
+    sem_wait(&sem1); 
 
     FILE *Puntero = fopen(archivoLeer, "r");
     if (Puntero == NULL)
@@ -55,7 +65,9 @@ Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
     }
 
     char LineaFichero[256];
-    Cuenta cuenta = {0, "", 0.0, 0}; // Inicializamos la cuenta
+    //Cuenta cuenta = {0, "", 0.0, 0}; // Inicializamos la cuenta
+
+    Cuenta cuenta = {0, "", 0.0, 0, PTHREAD_MUTEX_INITIALIZER}; // Inicializamos la cuenta
 
     while (fgets(LineaFichero, sizeof(LineaFichero), Puntero) != NULL)
     {
@@ -96,17 +108,26 @@ Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
             strcpy(cuenta.titular, titular);
             cuenta.saldo = saldo;
             cuenta.num_transacciones = numOperaciones;
+
+            // Inicializamos el mutex de la cuenta
+            pthread_mutex_init(&cuenta.mutex_c, NULL);
             break;
         }
     }
 
     fclose(Puntero);
+
+    // Liberamos el semáforo para que otros hilos puedan acceder al archivo
+    sem_post(&sem1);
+
     return cuenta;
 }
 
 // Guarda los cambios en el archivo
 void GuardarCuentaEnArchivo(const char *archivo, Cuenta usuario)
 {
+    // Pide permiso para escribir en el archivo
+    sem_wait(&sem2);
 
     // Abrimos el archivo en modo escritura y lectura
     FILE *Puntero = fopen(archivo, "r+");
@@ -146,13 +167,24 @@ void GuardarCuentaEnArchivo(const char *archivo, Cuenta usuario)
 
     fclose(Puntero);
 
+    // Liberamos el semáforo para que otros hilos puedan acceder al archivo
+    sem_post(&sem2);
+
 }
 
 // Depositar dinero en la cuenta, usándo semáforos para los hilos y guardando las modificaciones en el archivo
 void *Depositar(void *arg)
 {
+    // Bloqueamos el mutex para evitar condiciones de carrera
+    pthread_mutex_lock(&mutex_u);
+
     ArgsHilo *args = (ArgsHilo *)arg;
+
+    // Bloqueamos el mutex de la cuenta
+    pthread_mutex_lock(&args->usuario->mutex_c); 
+
     Cuenta *usuario = args->usuario;
+
     int fd = args->fd;
     float cantidad;
     char FechaHora[20]; // Para almacenar la fecha y la hora
@@ -162,6 +194,9 @@ void *Depositar(void *arg)
     if (scanf("%f", &cantidad) != 1 || cantidad <= 0)
     {
         printf("Cantidad inválida\n");
+        // Desbloqueamos los mutex
+        pthread_mutex_unlock(&args->usuario->mutex_c);
+        pthread_mutex_unlock(&mutex_u);
         return NULL;
     }
 
@@ -180,13 +215,23 @@ void *Depositar(void *arg)
 
     printf("Deposito realizado con éxito. Nuevo saldo: %.2f\n", usuario->saldo);
 
+    pthread_mutex_unlock(&args->usuario->mutex_c);
+    pthread_mutex_unlock(&mutex_u);
+
     return NULL;
 }
 
 // Retirar dinero de la cuenta, usándo semáforos para los hilos y guardando las modificaciones en el archivo
 void *Retirar(void *arg)
 {
+    // Bloqueamos el mutex para evitar condiciones de carrera
+    pthread_mutex_lock(&mutex_u);
+
     ArgsHilo *args = (ArgsHilo *)arg;
+
+    // Bloqueamos el mutex de la cuenta
+    pthread_mutex_lock(&args->usuario->mutex_c);
+
     Cuenta *usuario = args->usuario;
     int fd = args->fd;
     float cantidad;
@@ -197,6 +242,11 @@ void *Retirar(void *arg)
     if (scanf("%f", &cantidad) != 1 || cantidad <= 0)
     {
         printf("Cantidad inválida\n");
+
+        // Desbloqueamos los mutex
+        pthread_mutex_unlock(&args->usuario->mutex_c);
+        pthread_mutex_unlock(&mutex_u);
+
         return NULL;
     }
 
@@ -220,13 +270,24 @@ void *Retirar(void *arg)
         printf("Fondos insuficientes\n");
     }
 
+    // Desbloqueamos los mutex
+    pthread_mutex_unlock(&args->usuario->mutex_c);
+    pthread_mutex_unlock(&mutex_u);
+
     return NULL;
 }
 
 // Consultar el saldo de la cuenta
 void *ConsultarSaldo(void *arg)
 {
+    // Bloqueamos el mutex para evitar condiciones de carrera
+    pthread_mutex_lock(&mutex_u);
+
     ArgsHilo *args = (ArgsHilo *)arg;
+
+    // Bloqueamos el mutex de la cuenta
+    pthread_mutex_lock(&args->usuario->mutex_c);
+
     Cuenta *usuario = args->usuario;
     int fd = args->fd;
     char FechaHora[20]; // Para almacenar la fecha y la hora
@@ -242,6 +303,9 @@ void *ConsultarSaldo(void *arg)
     // Escribir mensaje en tuberia
     write(fd, mensaje, strlen(mensaje) + 1);
 
+    // Desbloqueamos los mutex
+    pthread_mutex_unlock(&args->usuario->mutex_c);
+    pthread_mutex_unlock(&mutex_u);
 
     return NULL;
 }
@@ -249,7 +313,14 @@ void *ConsultarSaldo(void *arg)
 // Realizar transacción a otra cuenta
 void *Transaccion(void *arg)
 {
+    // Bloqueamos el mutex para evitar condiciones de carrera
+    pthread_mutex_lock(&mutex_u);
+
     ArgsHilo *args = (ArgsHilo *)arg;
+
+    // Bloqueamos el mutex de la cuenta
+    pthread_mutex_lock(&args->usuario->mutex_c);
+
     Cuenta *usuario = args->usuario;
     int fd = args->fd;
     int cuentaDestino;
@@ -262,6 +333,11 @@ void *Transaccion(void *arg)
     if (scanf("%d", &cuentaDestino) != 1)
     {
         printf("Número de cuenta inválido\n");
+
+        // Desbloqueamos los mutex
+        pthread_mutex_unlock(&args->usuario->mutex_c);
+        pthread_mutex_unlock(&mutex_u);
+
         return NULL;
     }
 
@@ -270,6 +346,11 @@ void *Transaccion(void *arg)
     if (scanf("%f", &cantidad) != 1 || cantidad <= 0)
     {
         printf("Cantidad inválida\n");
+
+        // Desbloqueamos los mutex
+        pthread_mutex_unlock(&args->usuario->mutex_c);
+        pthread_mutex_unlock(&mutex_u);
+
         return NULL;
     }
 
@@ -281,7 +362,14 @@ void *Transaccion(void *arg)
     {
         printf("Cuenta destino no encontrada\n");
 
- 
+        // Liberamos el semáforo para que otros hilos puedan acceder al archivo
+        sem_post(&sem2);
+        sem_post(&sem1);
+
+        // Desbloqueamos los mutex
+        pthread_mutex_unlock(&args->usuario->mutex_c);
+        pthread_mutex_unlock(&mutex_u);
+
         return NULL;
     }
 
@@ -308,7 +396,13 @@ void *Transaccion(void *arg)
         printf("Fondos insuficientes\n");
     }
 
- 
+    // Liberamos el semáforo para que otros hilos puedan acceder al archivo
+    sem_post(&sem2);
+    sem_post(&sem1);
+
+    // Desbloqueamos los mutex
+    pthread_mutex_unlock(&args->usuario->mutex_c);
+    pthread_mutex_unlock(&mutex_u);
 
     return NULL;
 }
@@ -321,6 +415,12 @@ pid_t get_terminal_pid()
 
 int main(int argc, char *argv[])
 {
+
+    // Inicializamos los semáforos y el mutex de usuario
+    sem_init(&sem1, 0, 1);
+    sem_init(&sem2, 0, 1);
+
+    pthread_mutex_init(&mutex_u, NULL);
 
     int numeroCuenta = atoi(argv[1]);
     Cuenta usuario = LeerDatosUsuarioArchivo("cuentas.txt", numeroCuenta);
@@ -378,26 +478,24 @@ int main(int argc, char *argv[])
             break;
         case 5:
             printf("Cerrando la cuenta...\n");
-            sleep(5); // Esperamos 5 segundos para que se cierre la cuenta/terminal de usuario
+            close(fdUsuarioBanco);
+            pthread_mutex_destroy(&mutex_u);
+            sem_destroy(&sem1);
+            sem_destroy(&sem2);
+            exit(EXIT_SUCCESS);
 
-            // Obtenemos el PID de la terminal actual
-            pid_t pid_t = getppid(); // PID del shell padre
-
-
-            // Matar solo la terminal actual (sin afectar otras)
-            char command[256];
-            snprintf(command, sizeof(command), "kill -9 %d", pid_t);
-            system(command);
-
-
-
-            exit(EXIT_SUCCESS); // Cierra el programa
-            break;
         default:
             printf("Opción no válida\n");
         }
     } while (opcion != 5);
 
+    // Cerramos el descriptor que hemos usado para comunicar con la tubería
+    close(fdUsuarioBanco);
+
+    pthread_mutex_destroy(&mutex_u);
+    pthread_mutex_destroy(&usuario.mutex_c);
+    sem_destroy(&sem1);
+    sem_destroy(&sem2);
 
     return EXIT_SUCCESS;
 }
