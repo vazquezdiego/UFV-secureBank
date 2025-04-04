@@ -122,10 +122,8 @@ bool verificarUsuario(const char *archivoLectura, int IdCuenta)
 void *VerPipes(void *arg)
 {
 
-    int fdBancoUsuario, fdBancoMonitor;
-    char operacion[50];
-    char BancoMonitor[256];
-    int cuenta;
+    int fdBancoUsuario;
+
 
     while (1) // Bucle externo para volver a abrir el FIFO si se cierra
     {
@@ -149,16 +147,6 @@ void *VerPipes(void *arg)
 
                 // Extraer "Retiro" y el número de cuenta (1001)
                 sscanf(mensaje, "[%*[^]]] %s en cuenta %d:", operacion, &cuenta);
-
-                if (strcmp(operacion, "Retiro") == 0 || strcmp(operacion, "Transferencia") == 0)
-                {
-                    // Imprimir los valores extraídos
-                    snprintf(BancoMonitor, sizeof(BancoMonitor), "Operacion: %s, Cuenta: %d", operacion, cuenta);
-
-                    fdBancoMonitor = open("fifo_BancoMonitor", O_WRONLY);
-                    write(fdBancoMonitor, BancoMonitor, strlen(BancoMonitor) + 1);
-                    close(fdBancoMonitor);
-                }
             }
             else if (bytes_leidos == 0)
             {
