@@ -7,15 +7,49 @@
 #include "crearUsuario.h"
 #include <unistd.h>
 
+void ObtenerFechaHora(char *buffer, size_t bufferSize)
+{
+    time_t t;
+    struct tm *tm_info;
+
+    time(&t);
+    tm_info = localtime(&t);
+
+    strftime(buffer, bufferSize, "%Y-%m-%d %H:%M:%S", tm_info);
+}
+
+void EscribirEnLog(const char *mensaje, const char *archivoLog)
+{
+    FILE *archivo = fopen(archivoLog, "a");  // Abrir archivo en modo de agregar
+    if (!archivo)
+    {
+        perror("Error al abrir el archivo de log");
+        return;
+    }
+
+    fprintf(archivo, "%s\n", mensaje);  // Escribir mensaje con salto de línea
+    fclose(archivo);
+}
+
 
 // Para crear un usuario nuevo
 int main (int argc, char *argv[]) {
 
     // Obtener los valores pasados desde el programa principal
     int NumeroCuenta = atoi(argv[1]);
+    char *archivoLog = argv[2];
     char Titular[100];
     float Saldo = 0;
     int NumeroOperaciones = 0;
+
+    // Inicio de log
+    char FechaInicioCuenta[148];
+    char mensajeDeLog[256];
+    ObtenerFechaHora(FechaInicioCuenta, sizeof(FechaInicioCuenta));
+    snprintf(mensajeDeLog, sizeof(mensajeDeLog), "[%s] Usuario con número de cuenta %s creado.", FechaInicioCuenta, argv[1]);
+
+    // Escribir en el archivo de log
+    EscribirEnLog(mensajeDeLog, archivoLog);
 
     printf("+-----------------------------+\n");
     printf("| Menu de creación de usuario |\n");
@@ -40,6 +74,11 @@ int main (int argc, char *argv[]) {
     printf("|   Usuario guardado con éxito.                        |\n");
     printf("+------------------------------------------------------+\n");
 
+    char FechaFinCuenta[148];
+    char MensajeDeSalida[256];
+    ObtenerFechaHora(FechaFinCuenta, sizeof(FechaFinCuenta));
+    snprintf(MensajeDeSalida, sizeof(MensajeDeSalida), "[%s] Cierre de sesión de creación de cuenta: %s\n", FechaFinCuenta, argv[1]);
+    EscribirEnLog(MensajeDeSalida, archivoLog);
 
 }
 
