@@ -13,6 +13,6 @@ ARCHIVO_LOG=banco.log
 ARCHIVO_TRANSACCIONES=transacciones.log
 
 #rutas de usuario
-RUTA_USUARIO=/home/vboxuser/Documents/PracticaFinal/usuario
-RUTA_CREARUSUARIO=/home/vboxuser/Documents/PracticaFinal/crearusuario
-RUTA_MONITOR=/home/vboxuser/Documents/PracticaFinal/monitor
+RUTA_USUARIO=/home/larena/Documents/UFV-secureBank/usuario
+RUTA_CREARUSUARIO=/home/larena/Documents/UFV-secureBank/crearusuario
+RUTA_MONITOR=/home/larena/Documents/UFV-secureBank/monitor
