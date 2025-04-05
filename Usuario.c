@@ -447,7 +447,7 @@ int main(int argc, char *argv[])
     int fdUsuarioBanco = open("fifo_bancoUsuario", O_WRONLY);
 
     ObtenerFechaHora(FechaInicioCuenta, sizeof(FechaInicioCuenta));
-    snprintf(MensajeDeInicio, sizeof(MensajeDeInicio), "[%s] Inicio de sesión de cuenta: %s", FechaInicioCuenta, argv[1]);
+    snprintf(MensajeDeInicio, sizeof(MensajeDeInicio), "[%s] Inicio de sesión de cuenta: %s\n", FechaInicioCuenta, argv[1]);
     EscribirEnLog(MensajeDeInicio, archivoLog);
 
 
@@ -500,6 +500,11 @@ int main(int argc, char *argv[])
             break;
         case 5:
             printf("Cerrando la cuenta...\n");
+            char FechaFinCuenta[148];
+            char MensajeDeSalida[256];
+            ObtenerFechaHora(FechaFinCuenta, sizeof(FechaFinCuenta));
+            snprintf(MensajeDeSalida, sizeof(MensajeDeSalida), "[%s] Cierre de sesión de cuenta: %d\n", FechaFinCuenta, usuario.numero_cuenta);
+            EscribirEnLog(MensajeDeSalida, archivoLog);
             close(fdUsuarioBanco);
             pthread_mutex_destroy(&mutex_u);
             sem_destroy(&sem1);
