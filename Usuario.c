@@ -51,6 +51,20 @@ void ObtenerFechaHora(char *buffer, size_t bufferSize)
     strftime(buffer, bufferSize, "%Y-%m-%d %H:%M:%S", tm_info);
 }
 
+void EscribirEnLog(const char *mensaje, const char *archivoLog)
+{
+    FILE *archivo = fopen(archivoLog, "a"); // "a" → Añadir al final
+    if (!archivo)
+    {
+        perror("Error al abrir el archivo de log");
+        return;
+    }
+
+    fprintf(archivo, "%s", mensaje);
+
+    fclose(archivo);
+}
+
 // Para extraer los campos del archivo
 Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
 {
@@ -299,7 +313,7 @@ void *ConsultarSaldo(void *arg)
 
     // escribimos el mensaje
     ObtenerFechaHora(FechaHora, sizeof(FechaHora));
-    snprintf(mensaje, sizeof(mensaje), "[%s] ConsultaSaldo en cuenta %d: -%.2f", FechaHora, usuario->numero_cuenta, usuario->saldo);
+    snprintf(mensaje, sizeof(mensaje), "[%s] ConsultaSaldo en cuenta %d: %.2f", FechaHora, usuario->numero_cuenta, usuario->saldo);
     // Escribir mensaje en tuberia
     write(fd, mensaje, strlen(mensaje) + 1);
 
@@ -414,8 +428,7 @@ pid_t get_terminal_pid()
 }
 
 int main(int argc, char *argv[])
-{
-
+{    
     // Inicializamos los semáforos y el mutex de usuario
     sem_init(&sem1, 0, 1);
     sem_init(&sem2, 0, 1);
@@ -423,10 +436,19 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&mutex_u, NULL);
 
     int numeroCuenta = atoi(argv[1]);
+    char *archivoTransacciones = argv[2];
+    const char *archivoLog = argv[3];
+    
+
+    char FechaInicioCuenta[148];
+    char MensajeDeInicio[256];
     Cuenta usuario = LeerDatosUsuarioArchivo("cuentas.txt", numeroCuenta);
 
     int fdUsuarioBanco = open("fifo_bancoUsuario", O_WRONLY);
 
+    ObtenerFechaHora(FechaInicioCuenta, sizeof(FechaInicioCuenta));
+    snprintf(MensajeDeInicio, sizeof(MensajeDeInicio), "[%s] Inicio de sesión de cuenta: %s", FechaInicioCuenta, argv[1]);
+    EscribirEnLog(MensajeDeInicio, archivoLog);
 
 
     printf("Bienvenido, %s (Cuenta: %d)\n", usuario.titular, usuario.numero_cuenta);

@@ -249,7 +249,7 @@ void *MostrarMenu(void *arg)
 
                 // Construcción del comando con pausa al final
                 char comandoUsuario[512];
-                snprintf(comandoUsuario, sizeof(comandoUsuario), "%s %d", rutaUsuario, numeroCuenta);
+                snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\"",rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log);
 
                 // Ejecutar gnome-terminal con el comando
                 execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoUsuario, NULL);
@@ -276,7 +276,7 @@ void *MostrarMenu(void *arg)
 
                 // Construcción del comando con pausa al final
                 char comandoCrearUsuario[512];
-                snprintf(comandoCrearUsuario, sizeof(comandoCrearUsuario), "%s %d", rutaCrearUsuario, numeroCuenta);
+                snprintf(comandoCrearUsuario, sizeof(comandoCrearUsuario), "%s %d %s", rutaCrearUsuario, numeroCuenta, configuracion.archivo_log);
 
                 // Ejecutar gnome-terminal con el comando
                 execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoCrearUsuario, NULL);
