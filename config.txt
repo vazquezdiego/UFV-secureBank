@@ -11,3 +11,8 @@ NUM_HILOS=4
 ARCHIVO_CUENTAS=cuentas.txt
 ARCHIVO_LOG=banco.log
 ARCHIVO_TRANSACCIONES=transacciones.log
+
+#rutas de usuario
+RUTA_USUARIO=/home/vboxuser/Documents/PracticaFinal/usuario
+RUTA_CREARUSUARIO=/home/vboxuser/Documents/PracticaFinal/crearusuario
+RUTA_MONITOR=/home/vboxuser/Documents/PracticaFinal/monitor

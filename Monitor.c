@@ -11,7 +11,8 @@ int main(int argc, char *argv[])
 {
 
     sem_t *semaforo_transacciones = sem_open("/semaforo_transacciones", O_CREAT, 0666, 1);
-    if (semaforo_transacciones == SEM_FAILED) {
+    if (semaforo_transacciones == SEM_FAILED)
+    {
         perror("Error al abrir semáforo");
         exit(EXIT_FAILURE);
     }

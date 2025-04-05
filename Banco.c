@@ -41,7 +41,7 @@ sem_t *semaforoTransacciones;
 void EscribirEnTranscciones(const char *mensaje)
 {
     sem_wait(semaforoTransacciones);                                    // Esperar a que el semáforo esté disponible
-    FILE *archivoLog = fopen(configuracion.archivo_transacciones, "a"); // "a" → Añadir al final
+    FILE *archivoLog = fopen("transacciones.log", "a"); // "a" → Añadir al final
     if (!archivoLog)
     {
         perror("Error al abrir el archivo de log");
@@ -116,6 +116,12 @@ Config leer_configuracion(const char *ruta)
             sscanf(linea, "ARCHIVO_LOG=%s", config.archivo_log);
         else if (strstr(linea, "ARCHIVO_TRANSACCIONES"))
             sscanf(linea, "ARCHIVO_TRANSACCIONES=%s", config.archivo_transacciones);
+        else if (strstr(linea, "RUTA_USUARIO"))
+            sscanf(linea, "RUTA_USUARIO=%s", config.ruta_usuario);
+        else if (strstr(linea, "RUTA_CREARUSUARIO"))
+            sscanf(linea, "RUTA_CREARUSUARIO=%s", config.ruta_crearusuario);
+        else if (strstr(linea, "RUTA_MONITOR"))
+            sscanf(linea, "RUTA_MONITOR=%s", config.ruta_monitor);
     }
     fclose(archivo);
     return config;
@@ -170,8 +176,8 @@ void *VerPipes(void *arg)
 
             if (bytes_leidos > 0)
             {
-                mensaje[bytes_leidos] = '\0';    // Asegurar terminación de cadena
-                EscribirEnTranscciones(mensaje); // Escribir en el log
+                mensaje[bytes_leidos] = '\0';                 // Asegurar terminación de cadena
+                EscribirEnTranscciones(mensaje);              // Escribir en el log
             }
             else if (bytes_leidos == 0)
             {
@@ -190,7 +196,7 @@ void *MostrarMonitor(void *arg)
     pidMonitor = fork();
     if (pidMonitor == 0)
     {
-        const char *rutaMonitor = "/home/vboxuser/Documents/UFV-secureBank/monitor";
+        const char *rutaMonitor = configuracion.ruta_monitor;
         char comandoMonitor[512];
         snprintf(comandoMonitor, sizeof(comandoMonitor), "%s %d %d %s", rutaMonitor, configuracion.umbral_retiros, configuracion.umbral_transferencias, configuracion.archivo_transacciones);
         // Ejecutar gnome-terminal con el comando
@@ -239,7 +245,7 @@ void *MostrarMenu(void *arg)
             { // Proceso hijo
 
                 // Ruta absoluta del ejecutable usuario
-                const char *rutaUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
+                const char *rutaUsuario = configuracion.ruta_usuario;
 
                 // Construcción del comando con pausa al final
                 char comandoUsuario[512];
@@ -266,7 +272,7 @@ void *MostrarMenu(void *arg)
             { // proceso hijo
 
                 // Ruta absoluta del ejecutable menu usuario
-                const char *rutaCrearUsuario = "/home/vboxuser/Documents/UFV-secureBank/usuario";
+                const char *rutaCrearUsuario = configuracion.ruta_crearusuario;
 
                 // Construcción del comando con pausa al final
                 char comandoCrearUsuario[512];
@@ -301,7 +307,7 @@ void *EscucharTuberiaMonitor(void *arg)
         int bytes_leidos = read(fdBancoMonitor, mensaje, sizeof(mensaje) - 1);
         if (bytes_leidos > 0)
         {
-            mensaje[bytes_leidos] = '\0'; // Asegurar terminación de cadena
+            mensaje[bytes_leidos] = '\0';                 // Asegurar terminación de cadena
             printf("Mensaje del monitor: %s\n", mensaje); // Mostrar el mensaje
         }
         else if (bytes_leidos == 0)
@@ -322,33 +328,34 @@ int main()
         perror("Error al crear semáforo");
         exit(EXIT_FAILURE);
     }
-        pthread_t hilo_menu, hilo_pipes, hilo_monitor, hilo_escuchar;
-        configuracion = leer_configuracion("config.txt");
-        // Tuberias
-        if (mkfifo("fifo_bancoUsuario", 0666) == -1 && errno != EEXIST)
-        {
-            perror("Error al crear la tubería");
-            exit(EXIT_FAILURE);
-        }
 
-        if (mkfifo("fifo_bancoMonitor", 0666) == -1 && errno != EEXIST)
-        {
-            perror("Error al crear la tubería");
-            exit(EXIT_FAILURE);
-        }
-
-        // Crear los hilos
-        pthread_create(&hilo_escuchar, NULL, EscucharTuberiaMonitor, NULL);
-        pthread_create(&hilo_menu, NULL, MostrarMenu, NULL);
-        pthread_create(&hilo_pipes, NULL, VerPipes, NULL);
-        pthread_create(&hilo_monitor, NULL, MostrarMonitor, NULL);
-
-        pthread_join(hilo_menu, NULL);
-        pthread_join(hilo_pipes, NULL);
-        pthread_join(hilo_monitor, NULL);
-        pthread_join(hilo_escuchar, NULL);
-
-        sem_close(semaforoTransacciones); // Cerrar el semáforo
-        sem_unlink("/semaforo_transacciones"); // Eliminar el semáforo cuando termina el programa
-        return 0;
+    pthread_t hilo_menu, hilo_pipes, hilo_monitor, hilo_escuchar;
+    configuracion = leer_configuracion("config.txt");
+    // Tuberias
+    if (mkfifo("fifo_bancoUsuario", 0666) == -1 && errno != EEXIST)
+    {
+        perror("Error al crear la tubería");
+        exit(EXIT_FAILURE);
     }
+
+    if (mkfifo("fifo_bancoMonitor", 0666) == -1 && errno != EEXIST)
+    {
+        perror("Error al crear la tubería");
+        exit(EXIT_FAILURE);
+    }
+
+    // Crear los hilos
+    pthread_create(&hilo_escuchar, NULL, EscucharTuberiaMonitor, NULL);
+    pthread_create(&hilo_menu, NULL, MostrarMenu, NULL);
+    pthread_create(&hilo_pipes, NULL, VerPipes, NULL);
+    pthread_create(&hilo_monitor, NULL, MostrarMonitor, NULL);
+
+    pthread_join(hilo_menu, NULL);
+    pthread_join(hilo_pipes, NULL);
+    pthread_join(hilo_monitor, NULL);
+    pthread_join(hilo_escuchar, NULL);
+
+    sem_close(semaforoTransacciones);      // Cerrar el semáforo
+    sem_unlink("/semaforo_transacciones"); // Eliminar el semáforo cuando termina el programa
+    return 0;
+}
