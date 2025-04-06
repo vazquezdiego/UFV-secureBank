@@ -17,11 +17,10 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <errno.h>
-
+#include <signal.h>
 #include <sys/types.h>
-#include <fcntl.h>
-#include <errno.h>
 
+// Archivos
 #include "Usuarios.h"
 #include "Banco.h"
 #include "init_cuentas.c"
@@ -145,6 +144,11 @@ void *MostrarMonitor(void *arg)
         // Ejecutar gnome-terminal con el comando
         execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoMonitor, NULL);
     }
+    else
+    {
+    }
+
+    return NULL;
 }
 
 void *MostrarMenu(void *arg)
@@ -161,7 +165,8 @@ void *MostrarMenu(void *arg)
     InitCuentas(configuracion.archivo_cuentas);
 
     // Bucle de espera de conexiones
-    while (numeroCuenta != 1)
+
+    do
     {
         printf("+-----------------------------+\n");
         printf("|    Bienvenido al Banco      |\n");
@@ -189,7 +194,7 @@ void *MostrarMenu(void *arg)
 
                 // Construcción del comando con pausa al final
                 char comandoUsuario[512];
-                snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\" \"%s\"", rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log, configuracion.archivo_cuentas);
+                snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\" \"%s\"; exit", rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log, configuracion.archivo_cuentas);
 
                 // Ejecutar gnome-terminal con el comando
                 execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoUsuario, NULL);
@@ -201,6 +206,13 @@ void *MostrarMenu(void *arg)
             else
             { // Proceso padre
             }
+        }
+        else if (numeroCuenta != 1)
+        {
+            // Cierra la terminal que ejecutó el proceso (en la mayoría de casos)
+            pid_t terminalPid = getppid();
+            kill(terminalPid, SIGKILL);
+            exit(EXIT_SUCCESS);
         }
         else
         {
@@ -225,7 +237,7 @@ void *MostrarMenu(void *arg)
             {
             }
         }
-    }
+    } while (numeroCuenta != 1);
 }
 
 void *EscucharTuberiaMonitor(void *arg)

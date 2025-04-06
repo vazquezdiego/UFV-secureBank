@@ -13,6 +13,7 @@
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
+#include <signal.h> // Required for SIGKILL
 
 // Definimos los semáforos para controlar el archivo de cuentas.txt cuando escribimos y leemos
 sem_t sem1; // Para leer
@@ -29,7 +30,7 @@ typedef struct Cuenta
     char titular[50];
     float saldo;
     int num_transacciones;
-    
+
     // Definimos un mutex para controlar el acceso a la cuenta
     pthread_mutex_t mutex_c;
 } Cuenta;
@@ -41,11 +42,10 @@ typedef struct
     const char *archivoCuentas;
 } ArgsHilo;
 
-
-void limpiarConsola() {
+void limpiarConsola()
+{
     system("clear");
 }
-
 
 void ObtenerFechaHora(char *buffer, size_t bufferSize)
 {
@@ -72,10 +72,9 @@ void EscribirEnLog(const char *mensaje, const char *archivoLog)
     fclose(archivo);
 }
 
-
 void EscribirEnTranscciones(const char *mensaje, const char *archivoTransacciones)
 {
-    sem_wait(semaforoTransacciones);                                    // Esperar a que el semáforo esté disponible
+    sem_wait(semaforoTransacciones);                     // Esperar a que el semáforo esté disponible
     FILE *archivoLog = fopen(archivoTransacciones, "a"); // "a" → Añadir al final
     if (!archivoLog)
     {
@@ -90,12 +89,11 @@ void EscribirEnTranscciones(const char *mensaje, const char *archivoTransaccione
     sem_post(semaforoTransacciones); // Liberar el semáforo
 }
 
-
 // Para extraer los campos del archivo
 Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
 {
     // Pide permiso para leer el archivo
-    sem_wait(&sem1); 
+    sem_wait(&sem1);
 
     FILE *Puntero = fopen(archivoLeer, "r");
     if (Puntero == NULL)
@@ -105,7 +103,7 @@ Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
     }
 
     char LineaFichero[256];
-    //Cuenta cuenta = {0, "", 0.0, 0}; // Inicializamos la cuenta
+    // Cuenta cuenta = {0, "", 0.0, 0}; // Inicializamos la cuenta
 
     Cuenta cuenta = {0, "", 0.0, 0, PTHREAD_MUTEX_INITIALIZER}; // Inicializamos la cuenta
 
@@ -208,7 +206,6 @@ void GuardarCuentaEnArchivo(const char *archivo, Cuenta usuario)
 
     // Liberamos el semáforo para que otros hilos puedan acceder al archivo
     sem_post(&sem2);
-
 }
 
 // Depositar dinero en la cuenta, usándo semáforos para los hilos y guardando las modificaciones en el archivo
@@ -220,7 +217,7 @@ void *Depositar(void *arg)
     ArgsHilo *args = (ArgsHilo *)arg;
 
     // Bloqueamos el mutex de la cuenta
-    pthread_mutex_lock(&args->usuario->mutex_c); 
+    pthread_mutex_lock(&args->usuario->mutex_c);
 
     Cuenta *usuario = args->usuario;
     float cantidad;
@@ -329,8 +326,6 @@ void *ConsultarSaldo(void *arg)
     char FechaHora[20]; // Para almacenar la fecha y la hora
     char mensaje[256];
 
-
-
     printf("Saldo actual: %.2f\n", usuario->saldo);
 
     // Desbloqueamos los mutex
@@ -384,8 +379,6 @@ void *Transferencia(void *arg)
         return NULL;
     }
 
-
-
     // Leemos los datos de la cuenta destino
     Cuenta destino = LeerDatosUsuarioArchivo(args->archivoCuentas, cuentaDestino);
     if (destino.numero_cuenta == 0)
@@ -437,8 +430,6 @@ void *Transferencia(void *arg)
     return NULL;
 }
 
-
-
 void *MostrarMenuUsuario()
 {
     printf("+--------------------------------------+\n");
@@ -459,7 +450,7 @@ pid_t get_terminal_pid()
 }
 
 int main(int argc, char *argv[])
-{    
+{
     // Inicializamos los semáforos y el mutex de usuario
     sem_init(&sem1, 0, 1);
     sem_init(&sem2, 0, 1);
@@ -470,17 +461,14 @@ int main(int argc, char *argv[])
     char *archivoTransacciones = argv[2];
     const char *archivoLog = argv[3];
     const char *archivoCuentas = argv[4];
-    
 
     char FechaInicioCuenta[148];
     char MensajeDeInicio[256];
     Cuenta usuario = LeerDatosUsuarioArchivo("cuentas.txt", numeroCuenta);
 
-
     ObtenerFechaHora(FechaInicioCuenta, sizeof(FechaInicioCuenta));
     snprintf(MensajeDeInicio, sizeof(MensajeDeInicio), "[%s] Inicio de sesión de cuenta: %s\n", FechaInicioCuenta, argv[1]);
     EscribirEnLog(MensajeDeInicio, archivoLog);
-
 
     printf("Bienvenido, %s (Cuenta: %d)\n", usuario.titular, usuario.numero_cuenta);
 
@@ -530,13 +518,16 @@ int main(int argc, char *argv[])
             pthread_mutex_destroy(&mutex_u);
             sem_destroy(&sem1);
             sem_destroy(&sem2);
+
+            // Cierra la terminal que ejecutó el proceso (en la mayoría de casos)
+            pid_t terminalPid = getppid();
+            kill(terminalPid, SIGKILL);
             exit(EXIT_SUCCESS);
 
         default:
             printf("Opción no válida\n");
         }
     } while (opcion != 5);
-
 
     pthread_mutex_destroy(&mutex_u);
     pthread_mutex_destroy(&usuario.mutex_c);
