@@ -1,5 +1,5 @@
-1001,John Doe,3255.00,91
-1002,Jane Smith,5080.00,14
+1001,John Doe,3382.00,98
+1002,Jane Smith,5103.00,15
 1003,Alice Johnson,7000.00,0
 
 1009, juan, 0.00, 0

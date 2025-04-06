@@ -39,6 +39,10 @@ typedef struct
 } ArgsHilo;
 
 
+void limpiarConsola() {
+    system("clear");
+}
+
 
 void ObtenerFechaHora(char *buffer, size_t bufferSize)
 {
@@ -231,7 +235,8 @@ void *Depositar(void *arg)
 
     pthread_mutex_unlock(&args->usuario->mutex_c);
     pthread_mutex_unlock(&mutex_u);
-
+    sleep(5);
+    limpiarConsola();
     return NULL;
 }
 
@@ -287,6 +292,8 @@ void *Retirar(void *arg)
     // Desbloqueamos los mutex
     pthread_mutex_unlock(&args->usuario->mutex_c);
     pthread_mutex_unlock(&mutex_u);
+    sleep(5);
+    limpiarConsola();
 
     return NULL;
 }
@@ -320,7 +327,8 @@ void *ConsultarSaldo(void *arg)
     // Desbloqueamos los mutex
     pthread_mutex_unlock(&args->usuario->mutex_c);
     pthread_mutex_unlock(&mutex_u);
-
+    sleep(5);
+    limpiarConsola();
     return NULL;
 }
 
@@ -417,8 +425,24 @@ void *Transferencia(void *arg)
     // Desbloqueamos los mutex
     pthread_mutex_unlock(&args->usuario->mutex_c);
     pthread_mutex_unlock(&mutex_u);
-
+    sleep(5);
+    limpiarConsola();
     return NULL;
+}
+
+
+
+void *MostrarMenuUsuario()
+{
+    printf("+--------------------------------------+\n");
+    printf("|             MENÚ USUARIO             |\n");
+    printf("|             1. Depositar             |\n");
+    printf("|             2. Retirar               |\n");
+    printf("|             3. Consultar saldo       |\n");
+    printf("|             4. Transferencia         |\n");
+    printf("|             5. Salir                 |\n");
+    printf("+--------------------------------------+\n");
+    printf("\nSeleccione una opción: ");
 }
 
 // Para conseguir el pid de la terminal actual
@@ -458,16 +482,7 @@ int main(int argc, char *argv[])
 
     do
     {
-        printf("+--------------------------------------+\n");
-        printf("|             MENÚ USUARIO             |\n");
-        printf("|             1. Depositar             |\n");
-        printf("|             2. Retirar               |\n");
-        printf("|             3. Consultar saldo       |\n");
-        printf("|             4. Transacción           |\n");
-        printf("|             5. Salir                 |\n");
-        printf("+--------------------------------------+\n");
-
-        printf("\nSeleccione una opción: ");
+        MostrarMenuUsuario();
 
         if (scanf("%d", &opcion) != 1)
         {

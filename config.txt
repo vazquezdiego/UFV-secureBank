@@ -13,6 +13,9 @@ ARCHIVO_LOG=banco.log
 ARCHIVO_TRANSACCIONES=transacciones.log
 
 #rutas de usuario
-RUTA_USUARIO=/home/larena/Documents/UFV-secureBank/usuario
-RUTA_CREARUSUARIO=/home/larena/Documents/UFV-secureBank/crearusuario
-RUTA_MONITOR=/home/larena/Documents/UFV-secureBank/monitor
+RUTA_USUARIO=/home/vboxuser/Documents/UFV-secureBank/usuario
+RUTA_CREARUSUARIO=/home/vboxuser/Documents/UFV-secureBank/crearusuario
+RUTA_MONITOR=/home/vboxuser/Documents/UFV-secureBank/monitor
+
+#Numero máximo usuario
+MAX_USUARIOS=4

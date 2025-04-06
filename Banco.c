@@ -3,10 +3,6 @@
 //
 //
 // Funciones que contiene el archivo:
-// - Config leer_configuracion(const char *ruta): guardar la configuración en un struct
-// - bool verificarUsuario(const char *archivoLectura, int IdCuenta): devuelve true or false dependiendo si existe o no
-//   hay que revisarlo porque no funciona
-// - void crearUsuario(const char *archivoEscritura, const char *Nombre, int IdCuenta): para crear el usuario en caso de que no exista
 //
 // +------------------------------------------------------------------------------------------------------------------------------------------------+/
 
@@ -122,10 +118,30 @@ Config leer_configuracion(const char *ruta)
             sscanf(linea, "RUTA_CREARUSUARIO=%s", config.ruta_crearusuario);
         else if (strstr(linea, "RUTA_MONITOR"))
             sscanf(linea, "RUTA_MONITOR=%s", config.ruta_monitor);
+        else if (strstr(linea, "MAX_USUARIOS"))
+            sscanf(linea, "MAX_USUARIOS=%d", &config.max_usuarios);
     }
     fclose(archivo);
     return config;
 }
+
+// Funcion para mosotrar el menu del banco
+void MostrarMenuBanco()
+{
+    printf("+-----------------------------+\n");
+    printf("|    Bienvenido al Banco      |\n");
+    printf("|  salir(1)                   |\n");
+    printf("+-----------------------------+\n");
+    printf("Introduce tu número de cuenta:\n");
+
+}
+
+
+// Funcion para limpiar la consola
+void limpiarConsola() {
+    system("clear");
+}
+
 
 // Para comprobar si el usuario existe
 bool verificarUsuario(const char *archivoLectura, int IdCuenta)
@@ -204,6 +220,9 @@ void *MostrarMonitor(void *arg)
     }
 }
 
+
+
+
 void *MostrarMenu(void *arg)
 {
     // Zona para declarar variables
@@ -211,6 +230,7 @@ void *MostrarMenu(void *arg)
     char datosUsuario[100];
     pid_t pidUsuario;      // El pidUsuario
     pid_t pidCrearUsuario; // Variable for creating user process
+
 
     Config configuracion = leer_configuracion("config.txt");
 
@@ -220,18 +240,14 @@ void *MostrarMenu(void *arg)
     // Bucle de espera de conexiones
     while (numeroCuenta != 1)
     {
-
-        printf("+-----------------------------+\n");
-        printf("|    Bienvenido al Banco      |\n");
-        printf("|  salir(1)                   |\n");
-        printf("+-----------------------------+\n");
-        printf("Introduce tu número de cuenta:\n");
+        MostrarMenuBanco();
         scanf("%d", &numeroCuenta);
 
         if (verificarUsuario(configuracion.archivo_cuentas, numeroCuenta))
         {
             printf("Nuevo usuario conectado. Iniciando sesión...\n");
-            sleep(1);
+            sleep(5);
+            limpiarConsola();
 
             pidUsuario = fork();
 
@@ -291,7 +307,7 @@ void *MostrarMenu(void *arg)
 void *EscucharTuberiaMonitor(void *arg)
 {
     int fdBancoMonitor;
-    char mensaje[256];
+    char mensaje[512];
 
     // Abrir la tubería FIFO para lectura
     fdBancoMonitor = open("fifo_bancoMonitor", O_RDONLY);
@@ -308,7 +324,10 @@ void *EscucharTuberiaMonitor(void *arg)
         if (bytes_leidos > 0)
         {
             mensaje[bytes_leidos] = '\0';                 // Asegurar terminación de cadena
-            printf("Mensaje del monitor: %s\n", mensaje); // Mostrar el mensaje
+            printf("%s\n", mensaje); // Mostrar el mensaje
+            sleep(4); // Esperar un segundo antes de continuar
+            limpiarConsola(); // Limpiar la consola
+            MostrarMenuBanco(); // Mostrar el menú del banco
         }
         else if (bytes_leidos == 0)
         {

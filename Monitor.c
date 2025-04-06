@@ -5,7 +5,7 @@
 #include <semaphore.h>
 #include <fcntl.h>
 
-#define MAX_TEXT 100
+#define MAX_TEXT 512
 
 int main(int argc, char *argv[])
 {
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
                                 perror("Error al abrir la tubería fifo_bancoMonitor");
                                 exit(EXIT_FAILURE);
                             }
-                            snprintf(mensaje, sizeof(mensaje), "ALERTA: Retiros consecutivos en cuenta %d excede el límite de %d", cuenta, UmbralRetiros);
+                            snprintf(mensaje, sizeof(mensaje), "ALERTA: Retiros consecutivos en cuenta %d excede el límite de %d \n", cuenta, UmbralRetiros);
                             write(fd, mensaje, strlen(mensaje) + 1); // Enviar mensaje a la tubería
                             close(fd);
                         }
@@ -92,8 +92,15 @@ int main(int argc, char *argv[])
                         if (ContadorTransferencias >= UmbralTransferencias)
                         {
                             char mensaje[MAX_TEXT];
-                            snprintf(mensaje, sizeof(mensaje), "ALERTA: Transferencias consecutivas en cuenta %d excede el límite de %d", cuenta, UmbralTransferencias);
-                            printf("%s\n", mensaje);
+                            snprintf(mensaje, sizeof(mensaje), "ALERTA: Transferencias consecutivas en cuenta %d excede el límite de %d \n", cuenta, UmbralTransferencias);
+                            int fd = open("fifo_bancoMonitor", O_WRONLY);
+                            if (fd == -1)
+                            {
+                                perror("Error al abrir la tubería fifo_bancoMonitor");
+                                exit(EXIT_FAILURE);
+                            }
+                            write(fd, mensaje, strlen(mensaje) + 1); // Enviar mensaje a la tubería
+                            close(fd);
                         }
                     }
                 }

@@ -13,6 +13,7 @@ typedef struct {
     char ruta_usuario[100];
     char ruta_crearusuario[100];
     char ruta_monitor[100];
+    int max_usuarios;
 } Config;
 
 extern Config configuracion;  // Declaración de la variable global
