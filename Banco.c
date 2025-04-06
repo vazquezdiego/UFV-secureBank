@@ -1,8 +1,17 @@
 // +------------------------------------------------------------------------------------------------------------------------------------------------+/
-//  El programa principal, con ejecutar este programa vale para el resto
+//  Archivo: Banco.c
+//  Descripción: El programa principal, Banco.c, es el encargado de gestionar la creación de usuarios y la interacción con el monitor.
 //
 //
-// Funciones que contiene el archivo:
+// Funciones:
+// - EscribirEnLog(const char *mensaje): Abre un archivo de log y escribe el mensaje proporcionado al final de este archivo
+// - ObtenerFechaHora(char *buffer, size_t bufferSize): Obtiene la fecha y hora actuales
+// - leer_configuracion(const char *ruta): Lee la configuración desde un archivo de texto y devuelve una estructura Config
+// - verificarUsuario(const char *archivoLectura, int IdCuenta): Verifica si un usuario existe en el archivo de cuentas
+// - MostrarMonitor(void *arg): Crea un proceso hijo que ejecuta el monitor en una nueva terminal
+// - MostrarMenu(void *arg): Muestra el menú principal del banco y gestiona la creación de usuarios y la conexión de usuarios existentes
+// - EscucharTuberiaMonitor(void *arg): Escucha mensajes de una tubería FIFO y los muestra en la consola
+// - main(): Función principal que inicializa la configuración, crea las tuberías y los hilos, y gestiona el flujo del programa
 //
 // +------------------------------------------------------------------------------------------------------------------------------------------------+/
 
@@ -175,40 +184,9 @@ void *MostrarMenu(void *arg)
         printf("Introduce tu número de cuenta:\n");
         scanf("%d", &numeroCuenta);
 
-        if (verificarUsuario(configuracion.archivo_cuentas, numeroCuenta))
+        if (numeroCuenta == 1)
         {
-            printf("Nuevo usuario conectado. Iniciando sesión...\n");
 
-            pidUsuario = fork();
-
-            if (pidUsuario < 0)
-            {
-                perror("Error al crear el proceso hijo");
-                exit(EXIT_FAILURE);
-            }
-
-            if (pidUsuario == 0)
-            { // Proceso hijo
-                // Ruta absoluta del ejecutable usuario
-                const char *rutaUsuario = configuracion.ruta_usuario;
-
-                // Construcción del comando con pausa al final
-                char comandoUsuario[512];
-                snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\" \"%s\"; exit", rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log, configuracion.archivo_cuentas);
-
-                // Ejecutar gnome-terminal con el comando
-                execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoUsuario, NULL);
-
-                // Si execlp falla
-                perror("Error al ejecutar gnome-terminal");
-                exit(EXIT_FAILURE);
-            }
-            else
-            { // Proceso padre
-            }
-        }
-        else if (numeroCuenta != 1)
-        {
             // Cierra la terminal que ejecutó el proceso (en la mayoría de casos)
             pid_t terminalPid = getppid();
             kill(terminalPid, SIGKILL);
@@ -216,27 +194,69 @@ void *MostrarMenu(void *arg)
         }
         else
         {
+            if (verificarUsuario(configuracion.archivo_cuentas, numeroCuenta))
+            {
+                printf("Nuevo usuario conectado. Iniciando sesión...\n");
 
-            // Sirve para la creacion de Usuario
-            pidCrearUsuario = fork();
+                pidUsuario = fork();
 
-            if (pidCrearUsuario == 0)
-            { // proceso hijo
+                if (pidUsuario < 0)
+                {
+                    EscribirEnLog("Error al crear un usuario");
+                    exit(EXIT_FAILURE);
+                }
 
-                // Ruta absoluta del ejecutable menu usuario
-                const char *rutaCrearUsuario = configuracion.ruta_crearusuario;
+                if (pidUsuario == 0)
+                { // Proceso hijo
+                    // Ruta absoluta del ejecutable usuario
+                    const char *rutaUsuario = configuracion.ruta_usuario;
 
-                // Construcción del comando con pausa al final
-                char comandoCrearUsuario[512];
-                snprintf(comandoCrearUsuario, sizeof(comandoCrearUsuario), "%s %d %s", rutaCrearUsuario, numeroCuenta, configuracion.archivo_log);
+                    // Construcción del comando con pausa al final
+                    char comandoUsuario[512];
+                    snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\" \"%s\"; exit", rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log, configuracion.archivo_cuentas);
 
-                // Ejecutar gnome-terminal con el comando
-                execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoCrearUsuario, NULL);
+                    // Ejecutar gnome-terminal con el comando
+                    execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoUsuario, NULL);
+
+                    // Si execlp falla
+                    perror("Error al ejecutar gnome-terminal");
+                    exit(EXIT_FAILURE);
+                }
+                else
+                { // Proceso padre
+                }
             }
             else
             {
+
+                // Sirve para la creacion de Usuario
+                pidCrearUsuario = fork();
+
+                if (pidCrearUsuario < 0)
+                {
+                    EscribirEnLog("Error al iniciar el proceso de creación de usuario");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (pidCrearUsuario == 0)
+                { // proceso hijo
+
+                    // Ruta absoluta del ejecutable menu usuario
+                    const char *rutaCrearUsuario = configuracion.ruta_crearusuario;
+
+                    // Construcción del comando con pausa al final
+                    char comandoCrearUsuario[512];
+                    snprintf(comandoCrearUsuario, sizeof(comandoCrearUsuario), "%s %d %s", rutaCrearUsuario, numeroCuenta, configuracion.archivo_log);
+
+                    // Ejecutar gnome-terminal con el comando
+                    execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoCrearUsuario, NULL);
+                }
+                else
+                {
+                }
             }
         }
+
     } while (numeroCuenta != 1);
 }
 
@@ -249,7 +269,7 @@ void *EscucharTuberiaMonitor(void *arg)
     fdBancoMonitor = open("fifo_bancoMonitor", O_RDONLY);
     if (fdBancoMonitor == -1)
     {
-        perror("Error al abrir la tubería fifo_bancoMonitor");
+        EscribirEnLog("Error al abrir la tubería fifo_bancoMonitor");
         exit(EXIT_FAILURE);
     }
 
@@ -280,7 +300,7 @@ int main()
     // Tuberias
     if (mkfifo("fifo_bancoMonitor", 0666) == -1 && errno != EEXIST)
     {
-        perror("Error al crear la tubería");
+        EscribirEnLog("Error al crear la tubería");
         exit(EXIT_FAILURE);
     }
 

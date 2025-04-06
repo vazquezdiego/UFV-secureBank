@@ -1,3 +1,8 @@
+//+---------------------------------------------------------------------------------------------------------------------------------------------------+
+//  Nombre: Monitor.c                                                                                                        
+//  Descripción: Controla las transacciones que hay en el archivo de transacciones y envía alertas al banco si se superan los umbrales de operaciones.                                                                          
+//                                                                                              
+//+---------------------------------------------------------------------------------------------------------------------------------------------------+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

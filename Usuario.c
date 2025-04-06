@@ -1,7 +1,18 @@
 //+---------------------------------------------------------------------------------------------------------------+
+// Archivo: Usuario.c
+// Descripción: Este archivo contiene la implementación de las funciones relacionadas con el manejo de cuentas de usuario en un sistema bancario.
+//
+//
 // Funciones:
-//  - ejecutar_menu_usuario(int IdUsuario)
-//  - buscarUsuarioEnArchivo(const char *rutaBuscar)
+//  - ejecutar_menu_usuario(int IdUsuario): Ejecuta el menú del usuario y gestiona las opciones seleccionadas
+//  - buscarUsuarioEnArchivo(const char *rutaBuscar): Busca un usuario en el archivo de cuentas
+//  - verificarUsuario(const char *archivoLectura, int IdCuenta): Verifica si un usuario existe en el archivo de cuentas
+//  - leer_configuracion(const char *ruta): Lee la configuración desde un archivo de texto y devuelve una estructura Config
+//  - MostrarMonitor(void *arg): Crea un proceso hijo que ejecuta el monitor en una nueva terminal
+//  - MostrarMenu(void *arg): Muestra el menú principal del banco y gestiona la creación de usuarios y la conexión de usuarios existentes
+//  - EscucharTuberiaMonitor(void *arg): Escucha mensajes de una tubería FIFO y los muestra en la consola
+//  - main(): Función principal que inicializa la configuración, crea las tuberías y los hilos, y gestiona el flujo del programa
+//  
 //+---------------------------------------------------------------------------------------------------------------+
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +24,8 @@
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
-#include <signal.h> // Required for SIGKILL
+#include <signal.h>
+#include <errno.h>
 
 // Definimos los semáforos para controlar el archivo de cuentas.txt cuando escribimos y leemos
 sem_t sem1; // Para leer

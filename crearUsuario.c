@@ -1,3 +1,14 @@
+//+---------------------------------------------------------------------------------------------------------------------------------------------------+
+// Archivo: crearUsuario.c
+// Descripción: Crea un nuevo usuario y lo guarda en el archivo cuentas.txt.
+//
+//
+// Funciones:
+//
+// - ObtenerFechaHora(char *buffer, size_t bufferSize): Función que obtiene la fecha y hora actual y la guarda en el buffer.
+// - EscribirEnLog(const char *mensaje, const char *archivoLog): Función que escribe un mensaje en el archivo de log.
+// - main(int argc, char *argv[]): Función principal que recibe los argumentos de la línea de comandos y crea un nuevo usuario.
+//+---------------------------------------------------------------------------------------------------------------------------------------------------+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>

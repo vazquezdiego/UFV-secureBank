@@ -1,5 +1,6 @@
 // +------------------------------------------------------------------------------------------------------------------------------+*
-// Llamamos a este archivo desde el programa principal y se ejecuta al principio para añadir usuarios al sistema.
+// Archivo: init_cuentas.c
+// Descripción: Inicializa el archivo de cuentas, con cuentas predefinidas si está vacío.
 // +------------------------------------------------------------------------------------------------------------------------------+*
 #include <stdio.h>
 #include <stdlib.h>
