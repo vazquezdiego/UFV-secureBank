@@ -31,26 +31,6 @@
 
 Config configuracion;
 
-sem_t *semaforoTransacciones;
-
-// funcion para escribir en el log
-void EscribirEnTranscciones(const char *mensaje)
-{
-    sem_wait(semaforoTransacciones);                                    // Esperar a que el semáforo esté disponible
-    FILE *archivoLog = fopen("transacciones.log", "a"); // "a" → Añadir al final
-    if (!archivoLog)
-    {
-        perror("Error al abrir el archivo de log");
-        return;
-    }
-
-    // Escribir en el log con timestamp
-    fprintf(archivoLog, "%s\n", mensaje);
-
-    fclose(archivoLog);
-    sem_post(semaforoTransacciones); // Liberar el semáforo
-}
-
 void EscribirEnLog(const char *mensaje)
 {
     FILE *archivoLog = fopen(configuracion.archivo_log, "a"); // "a" → Añadir al final
@@ -125,24 +105,6 @@ Config leer_configuracion(const char *ruta)
     return config;
 }
 
-// Funcion para mosotrar el menu del banco
-void MostrarMenuBanco()
-{
-    printf("+-----------------------------+\n");
-    printf("|    Bienvenido al Banco      |\n");
-    printf("|  salir(1)                   |\n");
-    printf("+-----------------------------+\n");
-    printf("Introduce tu número de cuenta:\n");
-
-}
-
-
-// Funcion para limpiar la consola
-void limpiarConsola() {
-    system("clear");
-}
-
-
 // Para comprobar si el usuario existe
 bool verificarUsuario(const char *archivoLectura, int IdCuenta)
 {
@@ -170,41 +132,6 @@ bool verificarUsuario(const char *archivoLectura, int IdCuenta)
     return false;
 }
 
-void *VerPipes(void *arg)
-{
-
-    int fdBancoUsuario;
-
-    while (1) // Bucle externo para volver a abrir el FIFO si se cierra
-    {
-        fdBancoUsuario = open("fifo_bancoUsuario", O_RDONLY);
-        if (fdBancoUsuario == -1)
-        {
-            perror("Error al abrir la tubería.");
-            sleep(1); // Espera un segundo antes de intentar abrir nuevamente
-            continue;
-        }
-
-        while (1) // Bucle interno para leer mensajes continuamente
-        {
-            char mensaje[256] = {0};                                               // Asegurar que el buffer está limpio
-            int bytes_leidos = read(fdBancoUsuario, mensaje, sizeof(mensaje) - 1); // Dejar espacio para '\0'
-
-            if (bytes_leidos > 0)
-            {
-                mensaje[bytes_leidos] = '\0';                 // Asegurar terminación de cadena
-                EscribirEnTranscciones(mensaje);              // Escribir en el log
-            }
-            else if (bytes_leidos == 0)
-            {
-                // FIFO cerrada, salir del bucle interno y reabrirla
-                close(fdBancoUsuario);
-                break;
-            }
-        }
-    }
-}
-
 void *MostrarMonitor(void *arg)
 {
 
@@ -220,9 +147,6 @@ void *MostrarMonitor(void *arg)
     }
 }
 
-
-
-
 void *MostrarMenu(void *arg)
 {
     // Zona para declarar variables
@@ -230,7 +154,6 @@ void *MostrarMenu(void *arg)
     char datosUsuario[100];
     pid_t pidUsuario;      // El pidUsuario
     pid_t pidCrearUsuario; // Variable for creating user process
-
 
     Config configuracion = leer_configuracion("config.txt");
 
@@ -240,14 +163,16 @@ void *MostrarMenu(void *arg)
     // Bucle de espera de conexiones
     while (numeroCuenta != 1)
     {
-        MostrarMenuBanco();
+        printf("+-----------------------------+\n");
+        printf("|    Bienvenido al Banco      |\n");
+        printf("|  salir(1)                   |\n");
+        printf("+-----------------------------+\n");
+        printf("Introduce tu número de cuenta:\n");
         scanf("%d", &numeroCuenta);
 
         if (verificarUsuario(configuracion.archivo_cuentas, numeroCuenta))
         {
             printf("Nuevo usuario conectado. Iniciando sesión...\n");
-            sleep(5);
-            limpiarConsola();
 
             pidUsuario = fork();
 
@@ -259,13 +184,12 @@ void *MostrarMenu(void *arg)
 
             if (pidUsuario == 0)
             { // Proceso hijo
-
                 // Ruta absoluta del ejecutable usuario
                 const char *rutaUsuario = configuracion.ruta_usuario;
 
                 // Construcción del comando con pausa al final
                 char comandoUsuario[512];
-                snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\"",rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log);
+                snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\" \"%s\"", rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log, configuracion.archivo_cuentas);
 
                 // Ejecutar gnome-terminal con el comando
                 execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoUsuario, NULL);
@@ -323,11 +247,8 @@ void *EscucharTuberiaMonitor(void *arg)
         int bytes_leidos = read(fdBancoMonitor, mensaje, sizeof(mensaje) - 1);
         if (bytes_leidos > 0)
         {
-            mensaje[bytes_leidos] = '\0';                 // Asegurar terminación de cadena
-            printf("%s\n", mensaje); // Mostrar el mensaje
-            sleep(4); // Esperar un segundo antes de continuar
-            limpiarConsola(); // Limpiar la consola
-            MostrarMenuBanco(); // Mostrar el menú del banco
+            mensaje[bytes_leidos] = '\0'; // Asegurar terminación de cadena
+            printf("%s\n", mensaje);      // Mostrar el mensaje
         }
         else if (bytes_leidos == 0)
         {
@@ -340,23 +261,11 @@ void *EscucharTuberiaMonitor(void *arg)
 
 int main()
 {
-    // Inicializar semáforo POSIX nombrado
-    semaforoTransacciones = sem_open("/semaforo_transacciones", O_CREAT, 0666, 1);
-    if (semaforoTransacciones == SEM_FAILED)
-    {
-        perror("Error al crear semáforo");
-        exit(EXIT_FAILURE);
-    }
 
     pthread_t hilo_menu, hilo_pipes, hilo_monitor, hilo_escuchar;
     configuracion = leer_configuracion("config.txt");
-    // Tuberias
-    if (mkfifo("fifo_bancoUsuario", 0666) == -1 && errno != EEXIST)
-    {
-        perror("Error al crear la tubería");
-        exit(EXIT_FAILURE);
-    }
 
+    // Tuberias
     if (mkfifo("fifo_bancoMonitor", 0666) == -1 && errno != EEXIST)
     {
         perror("Error al crear la tubería");
@@ -366,15 +275,10 @@ int main()
     // Crear los hilos
     pthread_create(&hilo_escuchar, NULL, EscucharTuberiaMonitor, NULL);
     pthread_create(&hilo_menu, NULL, MostrarMenu, NULL);
-    pthread_create(&hilo_pipes, NULL, VerPipes, NULL);
     pthread_create(&hilo_monitor, NULL, MostrarMonitor, NULL);
 
     pthread_join(hilo_menu, NULL);
-    pthread_join(hilo_pipes, NULL);
     pthread_join(hilo_monitor, NULL);
     pthread_join(hilo_escuchar, NULL);
-
-    sem_close(semaforoTransacciones);      // Cerrar el semáforo
-    sem_unlink("/semaforo_transacciones"); // Eliminar el semáforo cuando termina el programa
     return 0;
 }

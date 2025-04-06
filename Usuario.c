@@ -18,6 +18,8 @@
 sem_t sem1; // Para leer
 sem_t sem2; // Para escribir
 
+sem_t *semaforoTransacciones;
+
 // Definimos un mutex para controlar las operaciones que realizan los usuarios
 pthread_mutex_t mutex_u = PTHREAD_MUTEX_INITIALIZER;
 
@@ -35,7 +37,8 @@ typedef struct Cuenta
 typedef struct
 {
     Cuenta *usuario;
-    int fd;
+    const char *archivoTransacciones;
+    const char *archivoCuentas;
 } ArgsHilo;
 
 
@@ -68,6 +71,25 @@ void EscribirEnLog(const char *mensaje, const char *archivoLog)
 
     fclose(archivo);
 }
+
+
+void EscribirEnTranscciones(const char *mensaje, const char *archivoTransacciones)
+{
+    sem_wait(semaforoTransacciones);                                    // Esperar a que el semáforo esté disponible
+    FILE *archivoLog = fopen(archivoTransacciones, "a"); // "a" → Añadir al final
+    if (!archivoLog)
+    {
+        perror("Error al abrir el archivo de log");
+        return;
+    }
+
+    // Escribir en el log con timestamp
+    fprintf(archivoLog, "%s\n", mensaje);
+
+    fclose(archivoLog);
+    sem_post(semaforoTransacciones); // Liberar el semáforo
+}
+
 
 // Para extraer los campos del archivo
 Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
@@ -137,7 +159,6 @@ Cuenta LeerDatosUsuarioArchivo(const char *archivoLeer, int IdUsuario)
 
     // Liberamos el semáforo para que otros hilos puedan acceder al archivo
     sem_post(&sem1);
-
     return cuenta;
 }
 
@@ -202,8 +223,6 @@ void *Depositar(void *arg)
     pthread_mutex_lock(&args->usuario->mutex_c); 
 
     Cuenta *usuario = args->usuario;
-
-    int fd = args->fd;
     float cantidad;
     char FechaHora[20]; // Para almacenar la fecha y la hora
     char mensaje[256];
@@ -223,13 +242,12 @@ void *Depositar(void *arg)
     usuario->num_transacciones++;
 
     // Guardamos los cambios en el archivo
-    GuardarCuentaEnArchivo("cuentas.txt", *usuario);
+    GuardarCuentaEnArchivo(args->archivoCuentas, *usuario);
 
     // escribimos el mensaje
     ObtenerFechaHora(FechaHora, sizeof(FechaHora));
-    snprintf(mensaje, sizeof(mensaje), "[%s] Depósito en cuenta %d: +%.2f", FechaHora, usuario->numero_cuenta, cantidad);
-    // Escribir mensaje en tuberia
-    write(fd, mensaje, strlen(mensaje) + 1);
+    snprintf(mensaje, sizeof(mensaje), "[%s] Depósito en cuenta %d: +%.2f \n", FechaHora, usuario->numero_cuenta, cantidad);
+    EscribirEnLog(mensaje, args->archivoTransacciones);
 
     printf("Deposito realizado con éxito. Nuevo saldo: %.2f\n", usuario->saldo);
 
@@ -252,7 +270,6 @@ void *Retirar(void *arg)
     pthread_mutex_lock(&args->usuario->mutex_c);
 
     Cuenta *usuario = args->usuario;
-    int fd = args->fd;
     float cantidad;
     char FechaHora[20]; // Para almacenar la fecha y la hora
     char mensaje[256];
@@ -274,13 +291,12 @@ void *Retirar(void *arg)
     {
         usuario->saldo -= cantidad;
         usuario->num_transacciones++;
-        GuardarCuentaEnArchivo("cuentas.txt", *usuario);
+        GuardarCuentaEnArchivo(args->archivoCuentas, *usuario);
 
         // escribimos el mensaje
         ObtenerFechaHora(FechaHora, sizeof(FechaHora));
-        snprintf(mensaje, sizeof(mensaje), "[%s] Retiro en cuenta %d: -%.2f", FechaHora, usuario->numero_cuenta, cantidad);
-        // Escribir mensaje en tuberia
-        write(fd, mensaje, strlen(mensaje) + 1);
+        snprintf(mensaje, sizeof(mensaje), "[%s] Retiro en cuenta %d: -%.2f \n", FechaHora, usuario->numero_cuenta, cantidad);
+        EscribirEnLog(mensaje, args->archivoTransacciones);
 
         printf("Retiro realizado con éxito. Nuevo saldo: %.2f\n", usuario->saldo);
     }
@@ -310,19 +326,12 @@ void *ConsultarSaldo(void *arg)
     pthread_mutex_lock(&args->usuario->mutex_c);
 
     Cuenta *usuario = args->usuario;
-    int fd = args->fd;
     char FechaHora[20]; // Para almacenar la fecha y la hora
     char mensaje[256];
 
 
 
     printf("Saldo actual: %.2f\n", usuario->saldo);
-
-    // escribimos el mensaje
-    ObtenerFechaHora(FechaHora, sizeof(FechaHora));
-    snprintf(mensaje, sizeof(mensaje), "[%s] ConsultaSaldo en cuenta %d: %.2f", FechaHora, usuario->numero_cuenta, usuario->saldo);
-    // Escribir mensaje en tuberia
-    write(fd, mensaje, strlen(mensaje) + 1);
 
     // Desbloqueamos los mutex
     pthread_mutex_unlock(&args->usuario->mutex_c);
@@ -344,7 +353,6 @@ void *Transferencia(void *arg)
     pthread_mutex_lock(&args->usuario->mutex_c);
 
     Cuenta *usuario = args->usuario;
-    int fd = args->fd;
     int cuentaDestino;
     float cantidad;
     char FechaHora[20]; // Para almacenar la fecha y la hora
@@ -379,7 +387,7 @@ void *Transferencia(void *arg)
 
 
     // Leemos los datos de la cuenta destino
-    Cuenta destino = LeerDatosUsuarioArchivo("cuentas.txt", cuentaDestino);
+    Cuenta destino = LeerDatosUsuarioArchivo(args->archivoCuentas, cuentaDestino);
     if (destino.numero_cuenta == 0)
     {
         printf("Cuenta destino no encontrada\n");
@@ -402,14 +410,13 @@ void *Transferencia(void *arg)
         destino.saldo += cantidad;
         usuario->num_transacciones++;
         destino.num_transacciones++;
-        GuardarCuentaEnArchivo("cuentas.txt", *usuario);
-        GuardarCuentaEnArchivo("cuentas.txt", destino);
+        GuardarCuentaEnArchivo(args->archivoCuentas, *usuario);
+        GuardarCuentaEnArchivo(args->archivoCuentas, destino);
 
         // escribimos el mensaje
         ObtenerFechaHora(FechaHora, sizeof(FechaHora));
-        snprintf(mensaje, sizeof(mensaje), "[%s] Transferencia desde cuenta %d a cuenta %d: -%.2f", FechaHora, usuario->numero_cuenta, cuentaDestino, cantidad);
-        // Escribir mensaje en tuberia
-        write(fd, mensaje, strlen(mensaje) + 1);
+        snprintf(mensaje, sizeof(mensaje), "[%s] Transferencia desde cuenta %d a cuenta %d: -%.2f \n", FechaHora, usuario->numero_cuenta, cuentaDestino, cantidad);
+        EscribirEnLog(mensaje, args->archivoTransacciones);
 
         printf("Transacción realizada con éxito. Nuevo saldo: %.2f\n", usuario->saldo);
     }
@@ -462,13 +469,13 @@ int main(int argc, char *argv[])
     int numeroCuenta = atoi(argv[1]);
     char *archivoTransacciones = argv[2];
     const char *archivoLog = argv[3];
+    const char *archivoCuentas = argv[4];
     
 
     char FechaInicioCuenta[148];
     char MensajeDeInicio[256];
     Cuenta usuario = LeerDatosUsuarioArchivo("cuentas.txt", numeroCuenta);
 
-    int fdUsuarioBanco = open("fifo_bancoUsuario", O_WRONLY);
 
     ObtenerFechaHora(FechaInicioCuenta, sizeof(FechaInicioCuenta));
     snprintf(MensajeDeInicio, sizeof(MensajeDeInicio), "[%s] Inicio de sesión de cuenta: %s\n", FechaInicioCuenta, argv[1]);
@@ -492,7 +499,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        ArgsHilo args = {&usuario, fdUsuarioBanco};
+        ArgsHilo args = {&usuario, archivoTransacciones, archivoCuentas};
 
         // Con las opciones creamos los hilos, y hacemos que esperen a que terminen
         switch (opcion)
@@ -520,7 +527,6 @@ int main(int argc, char *argv[])
             ObtenerFechaHora(FechaFinCuenta, sizeof(FechaFinCuenta));
             snprintf(MensajeDeSalida, sizeof(MensajeDeSalida), "[%s] Cierre de sesión de cuenta: %d\n", FechaFinCuenta, usuario.numero_cuenta);
             EscribirEnLog(MensajeDeSalida, archivoLog);
-            close(fdUsuarioBanco);
             pthread_mutex_destroy(&mutex_u);
             sem_destroy(&sem1);
             sem_destroy(&sem2);
@@ -531,8 +537,6 @@ int main(int argc, char *argv[])
         }
     } while (opcion != 5);
 
-    // Cerramos el descriptor que hemos usado para comunicar con la tubería
-    close(fdUsuarioBanco);
 
     pthread_mutex_destroy(&mutex_u);
     pthread_mutex_destroy(&usuario.mutex_c);
