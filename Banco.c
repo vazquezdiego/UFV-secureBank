@@ -108,6 +108,8 @@ Config leer_configuracion(const char *ruta)
             sscanf(linea, "RUTA_MONITOR=%s", config.ruta_monitor);
         else if (strstr(linea, "MAX_USUARIOS"))
             sscanf(linea, "MAX_USUARIOS=%d", &config.max_usuarios);
+        else if (strstr(linea, "MODO_DEBUG"))
+            sscanf(linea, "MODO_DEBUG=%d", &config.modo_debug);
     }
     fclose(archivo);
     return config;
@@ -213,7 +215,7 @@ void *MostrarMenu(void *arg)
 
                     // Construcción del comando con pausa al final
                     char comandoUsuario[512];
-                    snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\" \"%s\"; exit", rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log, configuracion.archivo_cuentas);
+                    snprintf(comandoUsuario, sizeof(comandoUsuario), "\"%s\" %d \"%s\" \"%s\" \"%s\" \"%d\" \"%d\"; exit", rutaUsuario, numeroCuenta, configuracion.archivo_transacciones, configuracion.archivo_log, configuracion.archivo_cuentas, configuracion.limite_retiro, configuracion.limite_transferencia);
 
                     // Ejecutar gnome-terminal con el comando
                     execlp("gnome-terminal", "gnome-terminal", "--", "bash", "-c", comandoUsuario, NULL);

@@ -52,6 +52,8 @@ typedef struct
     Cuenta *usuario;
     const char *archivoTransacciones;
     const char *archivoCuentas;
+    int limete_retiro;
+    int limite_transferencia;
 } ArgsHilo;
 
 void limpiarConsola()
@@ -284,7 +286,7 @@ void *Retirar(void *arg)
     char mensaje[256];
 
     printf("Ingrese la cantidad a retirar: ");
-    if (scanf("%f", &cantidad) != 1 || cantidad <= 0)
+    if (scanf("%f", &cantidad) != 1 || cantidad <= 0 || args->limete_retiro)
     {
         printf("Cantidad inválida\n");
 
@@ -380,7 +382,7 @@ void *Transferencia(void *arg)
 
     // Leemos la cantidad a transferir
     printf("Ingrese la cantidad a transferir: ");
-    if (scanf("%f", &cantidad) != 1 || cantidad <= 0)
+    if (scanf("%f", &cantidad) != 1 || cantidad <= 0 || args->limite_transferencia )
     {
         printf("Cantidad inválida\n");
 
@@ -473,6 +475,8 @@ int main(int argc, char *argv[])
     char *archivoTransacciones = argv[2];
     const char *archivoLog = argv[3];
     const char *archivoCuentas = argv[4];
+    int limite_retiro = atoi(argv[5]);
+    int limite_transferencia = atoi(argv[6]);
 
     char FechaInicioCuenta[148];
     char MensajeDeInicio[256];
@@ -499,7 +503,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        ArgsHilo args = {&usuario, archivoTransacciones, archivoCuentas};
+        ArgsHilo args = {&usuario, archivoTransacciones, archivoCuentas, limite_retiro, limite_transferencia};
 
         // Con las opciones creamos los hilos, y hacemos que esperen a que terminen
         switch (opcion)

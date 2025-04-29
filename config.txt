@@ -19,3 +19,4 @@ RUTA_MONITOR=/home/vboxuser/Documents/UFV-secureBank/monitor
 
 #Numero máximo usuario
 MAX_USUARIOS=4
+MODO_DEBUG=1
